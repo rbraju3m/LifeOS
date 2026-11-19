@@ -4,7 +4,7 @@
 |---|---|---|
 | Unit (PHP) | Pest | value objects, RecurrenceCalculator (DST, leap day, month-end, COUNT/UNTIL), entitlement resolution, RoleMatrix, scrubbers |
 | Feature/API | Pest + Laravel HTTP tests on **MySQL 8.4** (not SQLite: we need generated columns, FULLTEXT and SKIP LOCKED) | every endpoint: happy path, validation, 401/403/404, rate limits, envelope/OpenAPI conformance (`spectator` or schema assertions) |
-| **Authorization isolation matrix** | Pest datasets | For **every** route that takes an ID: user A's resource accessed by (B stranger, B in the same family as A with the item private, viewer, child, removed member, unauthenticated) → expected 404/403/401. A route-discovery test fails CI if a new route is not registered in the matrix |
+| **Authorization isolation matrix** | Pest datasets | For **every** route that takes an ID: user A's resource accessed by (B stranger, B in the same family as A with the item private, viewer, child, removed member, unauthenticated) → expected 404/403/401. A route-discovery test fails CI if a new route is not registered in the matrix (`tests/Support/IsolationMatrix.php`, run by `tests/Feature/IsolationMatrixTest.php`) |
 | Permission tests | Pest | role matrix × abilities in family spaces; admin cannot see private items; leaving moves private items |
 | Queue/scheduler | Pest with `Queue::fake`, `Bus::fake`, real DB; `travelTo()` | dispatcher idempotency (run twice → one occurrence), concurrent dispatchers (two processes, SKIP LOCKED), outage catch-up, snooze, version mismatch, retries/backoff, quiet hours |
 | Notification | `Notification::fake`, Mail fake, Web Push mocked client | channel selection ∩ prefs ∩ entitlements; 410 removes subscription; dedupe |

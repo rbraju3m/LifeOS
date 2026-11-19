@@ -4,6 +4,7 @@ use App\Modules\Audit\AuditServiceProvider;
 use App\Modules\Entitlements\EntitlementsServiceProvider;
 use App\Modules\Identity\IdentityServiceProvider;
 use App\Modules\Spaces\SpacesServiceProvider;
+use App\Modules\Tags\TagsServiceProvider;
 use App\Providers\AppServiceProvider;
 
 return [
@@ -12,4 +13,5 @@ return [
     SpacesServiceProvider::class,
     EntitlementsServiceProvider::class,
     AuditServiceProvider::class,
+    TagsServiceProvider::class,
 ];

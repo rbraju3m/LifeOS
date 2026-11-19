@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-LifeOS is a freemium consumer platform for managing personal and family life. It launches in Bangladesh first, then goes global. Phase 0 (foundation) is done. Phase 1 is in progress: slices 1.1 (Identity: accounts and login), 1.2 (Spaces and Entitlements) and 1.3 (Audit log and log scrubbing) are built. The backend is a Laravel 13 API in `backend/`. `frontend/` (React) and Docker Compose are not set up yet, because this machine has no Node.js or Docker.
+LifeOS is a freemium consumer platform for managing personal and family life. It launches in Bangladesh first, then goes global. Phase 0 (foundation) is done. Phase 1 is in progress: slices 1.1 (Identity: accounts and login), 1.2 (Spaces and Entitlements), 1.3 (Audit log and log scrubbing) and 1.5a (content API groundwork and Tags) are built. 1.4 (frontend) waits for Node.js. The backend is a Laravel 13 API in `backend/`. `frontend/` (React) and Docker Compose are not set up yet, because this machine has no Node.js or Docker.
 
 - `docs/blueprint/`: the approved implementation blueprint, one file per section (PRD, schema, API, security, roadmap, …). Start at `docs/blueprint/README.md`. Slices are listed in `22-phase-by-phase-claude-code-implementation-plan.md`.
 - `docs/adr/`: architecture decision records. Supersede an ADR with a new one rather than editing an accepted one.
@@ -18,7 +18,7 @@ Laravel 13 / PHP 8.4+ modular monolith (`backend/app/Modules/<Module>`), MySQL 8
 
 - Every content row belongs to a **space** (`space_id`). A personal space has exactly one member, and a family is a shared space. Authorization is based on space membership, the member's role, the item's `visibility` and its `created_by`, and is always enforced in the backend (policies plus `visibleTo` query scopes). Never trust a client-supplied `space_id`, `created_by` or role.
 - Requests for another user's resources return 404, not 403.
-- Feature modules must not depend on other feature modules. Platform modules (Identity, Spaces, Entitlements, Files, Notifications, Reminders, Audit, Privacy) must not depend on feature modules; features register with them through registries or contracts.
+- Feature modules must not depend on other feature modules. Platform modules (Identity, Spaces, Entitlements, Files, Notifications, Reminders, Audit, Privacy, Tags) must not depend on feature modules; features register with them through registries or contracts.
 - Prices and limits live in the entitlement tables, never in code. Export, deletion and access to existing data are never gated by plan.
 - Store instants in UTC as `DATETIME(3)`. Store wall-clock intent with an IANA timezone. Store money as `*_amount_minor` plus `currency`.
 - Create ULID columns only through `App\Modules\Shared\Database\Ulid` (CHAR(26) ascii_bin). Foreign keys need the same collation as the column they reference.
@@ -57,7 +57,8 @@ cd backend && php artisan queue:work                                     # run q
 - Every request gets an `X-Request-Id`, which is added to the log context and to error bodies.
 - Domain models extend `BaseModel` (ULID keys, `DATETIME(3)` timestamps). Each new module gets a provider extending `ModuleServiceProvider`, placed in the module root and registered in `bootstrap/providers.php`. The provider auto-loads `Database/Migrations` and mounts `routes/api.php` under `/api/v1`.
 - Request validation extends `StrictFormRequest`, which rejects unknown top-level fields with a 422. List `password_confirmation`-style fields in `$alsoAllowed`.
-- Lists: `cursorPaginate(PerPage::fromRequest($request))`. Money: `Money` (minor units). Wall-clock times: `LocalDateTime` (IANA zone; DST gap shifts forward, ambiguous times take the first occurrence).
+- Lists: `cursorPaginate(PerPage::fromRequest($request))`.
+- POST creates take `Idempotency-Key`: add `->middleware(Idempotency::class)` to the route (after `auth:sanctum`). PATCH supports `If-Match`: load the row with `lockForUpdate()` in a transaction and call `Version::assertMatches($request, $row)`. Resources expose `'version' => Version::of($model)`. Money: `Money` (minor units). Wall-clock times: `LocalDateTime` (IANA zone; DST gap shifts forward, ambiguous times take the first occurrence).
 
 ## Identity module (`backend/app/Modules/Identity`)
 
@@ -75,6 +76,9 @@ cd backend && php artisan queue:work                                     # run q
 - `Authorization/RoleMatrix` is the permission table from blueprint §14. `tests/Unit/Spaces/RoleMatrixTest.php` spells out the whole table, so any change shows up as a reviewed diff.
 - `SpaceAccess` (membership and role lookup) is bound `scoped`, never `singleton`, so queue workers don't reuse stale memberships.
 - Ownership columns (`type`, `owner_user_id`, `role`, `user_id`, …) are never mass-assignable. Set them in actions with `forceFill`.
+- Nested content routes use `Route::scopeBindings()->prefix('spaces/{space}')`. Register the model with `SpaceContentRegistry::register('tag', Tag::class)` in the module provider; `Space::resolveChildRouteBinding` then finds the child only inside that space (404 otherwise).
+- Content without a `visibility` column overrides `hasVisibilityColumn()` to return false (always space-wide).
+- Authorize write requests in the FormRequest's `authorize()` (it runs before validation), so callers without access never get validation answers about another space.
 
 ## Entitlements module (`backend/app/Modules/Entitlements`)
 
@@ -89,6 +93,11 @@ cd backend && php artisan queue:work                                     # run q
 - `auth.*` actions are security events, listed at `GET /me/security-events`. `Listeners/RecordAuthEvents` maps Identity/Fortify events to them. Laravel's `Failed` event is never used (it carries the plaintext password); Identity dispatches `LoginFailed`/`AccountLocked` for existing accounts only.
 - Every log channel has the `ScrubLogs` tap (`Shared/Logging`), which redacts sensitive keys and bearer/basic credentials. Add it to any new channel.
 
+## Tags module (`backend/app/Modules/Tags`)
+
+- Platform module (blueprint §9.1): feature modules link to tags through their own pivots (`task_tag`, …) and must check that tag and item share a space.
+- Tags are space-wide (no `visibility`) and hard-deleted. Names are unique per space, case- and accent-insensitive (column collation). RoleMatrix content type `tag`: children and viewers cannot create; members edit or delete only their own.
+
 ## Test conventions
 
 - Feature tests send `Origin: APP_URL` automatically (`tests/Pest.php`), so Sanctum treats them like SPA requests. They may not make network calls (`Http::preventStrayRequests()`).
@@ -97,6 +106,7 @@ cd backend && php artisan queue:work                                     # run q
 - Laravel skips CSRF checks in tests. `tests/Feature/Identity/CsrfTest.php` shows how to turn them back on.
 - Factory users go through the same setup as registration (preferences, personal space). `Tests\Support\Spaces` builds family spaces and memberships.
 - Test-only tables live in `tests/Fixtures/Migrations`. `tests/TestCase.php` registers that folder, so never create tables inside a test, because MySQL DDL would commit the test transaction. `Tests\Fixtures\Spaces\FixtureNote` is a ready-made space-owned model.
+- **Isolation matrix:** every API route with an ID parameter must be listed in `tests/Support/IsolationMatrix.php` (route, item maker, viewer/child statuses), or `IsolationMatrixTest` fails. `Tests\Support\Content` creates module rows directly.
 
 ## Workflow
 

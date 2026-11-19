@@ -17,12 +17,22 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Every list query must go through visibleTo(): it returns only rows in
  * spaces where the user is an active member, and never other members'
  * private rows, whatever their role.
+ *
+ * Content without a `visibility` column (e.g. tags, which are always
+ * space-wide) overrides hasVisibilityColumn() to return false.
  */
 trait BelongsToSpace
 {
     public function initializeBelongsToSpace(): void
     {
-        $this->mergeCasts(['visibility' => Visibility::class]);
+        if ($this->hasVisibilityColumn()) {
+            $this->mergeCasts(['visibility' => Visibility::class]);
+        }
+    }
+
+    public function hasVisibilityColumn(): bool
+    {
+        return true;
     }
 
     /**
@@ -46,14 +56,18 @@ trait BelongsToSpace
      */
     public function scopeVisibleTo(Builder $query, User $user): void
     {
-        $query
-            ->whereIn($query->qualifyColumn('space_id'), SpaceMember::query()
-                ->select('space_id')
-                ->where('user_id', $user->id)
-                ->where('status', MemberStatus::Active))
-            ->where(fn (Builder $q) => $q
-                ->where($query->qualifyColumn('visibility'), Visibility::Space)
-                ->orWhere($query->qualifyColumn('created_by'), $user->id));
+        $query->whereIn($query->qualifyColumn('space_id'), SpaceMember::query()
+            ->select('space_id')
+            ->where('user_id', $user->id)
+            ->where('status', MemberStatus::Active));
+
+        if (! $this->hasVisibilityColumn()) {
+            return;
+        }
+
+        $query->where(fn (Builder $q) => $q
+            ->where($query->qualifyColumn('visibility'), Visibility::Space)
+            ->orWhere($query->qualifyColumn('created_by'), $user->id));
     }
 
     public function spaceId(): string
@@ -70,6 +84,10 @@ trait BelongsToSpace
 
     public function visibility(): Visibility
     {
+        if (! $this->hasVisibilityColumn()) {
+            return Visibility::Space;
+        }
+
         $visibility = $this->getAttribute('visibility');
 
         return $visibility instanceof Visibility ? $visibility : Visibility::from((string) $visibility);

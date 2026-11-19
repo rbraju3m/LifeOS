@@ -12,18 +12,18 @@
 | Platform | **Notifications** | notifications, notification_deliveries, notification_preferences, push_subscriptions | Identity |
 | Platform | **Reminders** (scheduling engine) | reminders, reminder_occurrences | Spaces, Notifications, Shared (RRule) |
 | Platform | **Audit** | audit_logs | Identity |
+| Platform | **Tags** | tags | Spaces |
 | Platform | **Privacy** | data_exports, account deletion workflow | all modules via `ExportsUserData` / `PurgesUserData` contracts |
 | Feature | **Tasks** | task_lists, tasks, task_tag | Spaces, Reminders (contract), Tags |
 | Feature | **Notes** | notes, note_tag, note_attachments | Spaces, Files, Tags |
 | Feature | **Calendar** | events, event_exceptions, important_dates | Spaces, Reminders |
 | Feature | **Records** | records, record_fields, record_attachments, record_tag | Spaces, Files, Reminders |
-| Feature | **Tags** | tags | Spaces |
 | Composition | **Dashboard / Search** | none (read-only aggregation) | feature modules via `DashboardProvider`, `SearchProvider` contracts |
 | Future | Obligations, Assets, Home (Phase 2–4) | see §10.9 | Spaces, Files, Reminders |
 | Future | Family is **not a separate data module**: family = a `Space` of type `family` + UI/invitation flows | | Spaces |
 
 **Rules**
-1. Feature modules may depend on Platform modules, never on other Feature modules. Cross-feature links, such as an asset linked to an obligation, go through IDs plus contracts.
+1. Feature modules may depend on Platform modules, never on other Feature modules. (Tags is a Platform module because Tasks, Notes and Records all link to it.) Cross-feature links, such as an asset linked to an obligation, go through IDs plus contracts.
 2. Platform modules never depend on Feature modules. The Reminders and Search engines find out about features through a **registry**. For example, `ReminderSourceRegistry::register('task', TaskReminderSource::class)` is called in the Tasks provider, which inverts the dependency.
 3. A module exposes only `Contracts/` (interfaces and DTOs), `Events/` and HTTP routes. Other modules must not query its Eloquent models directly. Deptrac enforces this.
 4. All cross-module side effects happen through domain events dispatched **after commit** (`ShouldDispatchAfterCommit`).

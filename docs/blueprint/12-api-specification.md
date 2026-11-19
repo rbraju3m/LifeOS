@@ -11,8 +11,8 @@
 - **Filtering:** `filter[status]=open&filter[list_id]=...&filter[tag]=...&filter[due_from]=2026-11-01`.
 - **Sorting:** `sort=-due_at,priority`, with a whitelisted set of fields per resource.
 - **Search:** `q=` (min 2 chars).
-- **Idempotency:** POST create endpoints accept an `Idempotency-Key` header (UUID/ULID, 24 h). Replaying the same key with the same body returns the stored response; replaying with a different body returns 409.
-- **Concurrency:** resources return `updated_at`/`version`. PATCH accepts `If-Match: <version>`; a stale version returns 409.
+- **Idempotency:** POST create endpoints accept an `Idempotency-Key` header (UUID/ULID, 24 h, per user). Replaying the same key with the same body returns the stored response with `Idempotent-Replayed: true`; replaying with a different body returns 409 `idempotency_key_reused`; a repeat while the first is still running returns 409 `idempotency_request_in_progress`; a malformed key returns 400 `idempotency_key_invalid`. Only 2xx responses are stored.
+- **Concurrency:** resources return `updated_at` and `version` (`updated_at` in epoch milliseconds). PATCH accepts `If-Match: <version>` (bare, quoted or weak ETag form); a stale version returns 409 `version_conflict` with `meta.current_version`. Without `If-Match` the update is applied (last write wins).
 - **Dates:** instants are ISO 8601 UTC (`2026-11-18T03:00:00.000Z`) **plus** the `timezone` field. Date-only values are `YYYY-MM-DD`.
 - **Rate limits (per user unless noted):**
 

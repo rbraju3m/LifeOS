@@ -6,6 +6,8 @@ use App\Modules\Identity\Models\User;
 use App\Modules\Shared\Models\BaseModel;
 use App\Modules\Spaces\Enums\MemberStatus;
 use App\Modules\Spaces\Enums\SpaceType;
+use App\Modules\Spaces\Routing\SpaceContentRegistry;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -75,6 +77,30 @@ class Space extends BaseModel
     public function activeMembers(): HasMany
     {
         return $this->members()->where('status', MemberStatus::Active);
+    }
+
+    /**
+     * Scoped route binding for content registered in SpaceContentRegistry:
+     * the child is only found inside this space.
+     *
+     * @param  string  $childType
+     * @param  mixed  $value
+     * @param  string|null  $field
+     */
+    public function resolveChildRouteBinding($childType, $value, $field): ?Model
+    {
+        $model = SpaceContentRegistry::modelFor($childType);
+
+        if ($model === null) {
+            return parent::resolveChildRouteBinding($childType, $value, $field);
+        }
+
+        $instance = new $model;
+
+        return $instance->newQuery()
+            ->where($instance->qualifyColumn('space_id'), $this->id)
+            ->where($instance->qualifyColumn($field ?? $instance->getRouteKeyName()), $value)
+            ->first();
     }
 
     public function isPersonal(): bool
