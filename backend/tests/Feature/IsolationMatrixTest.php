@@ -33,7 +33,13 @@ it('enforces isolation', function (string $route, string $actor) {
         $this->actingAs($case['actor']);
     }
 
-    $response = $this->json($definition['method'], route($route, $case['params']), $definition['body'] ?? []);
+    $body = $definition['body'] ?? [];
+    $body = $body instanceof Closure ? $body($case['params']) : $body;
+
+    $names = app('router')->getRoutes()->getByName($route)?->parameterNames() ?? [];
+    $url = route($route, array_intersect_key($case['params'], array_flip($names)));
+
+    $response = $this->json($definition['method'], $url, $body);
 
     expect($response->status())->toBe(
         IsolationMatrix::expected($route, $actor),

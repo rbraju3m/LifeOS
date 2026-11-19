@@ -92,8 +92,8 @@ The same pattern applies to every content resource:
 
 | Resource | Extra endpoints | Key validation |
 |---|---|---|
-| `task-lists` | `POST /{id}/archive` | name 1–100; color hex |
-| `tasks` | `POST /{id}/complete` (returns next instance if recurring), `POST /{id}/reopen`, `POST /reorder` | title 1–255; description ≤10k; due_date date; due_time H:i requires due_date; timezone valid; rrule parseable, FREQ in DAILY/WEEKLY/MONTHLY/YEARLY, COUNT ≤ 1000, min interval daily; priority 0–3; task_list_id in same space; tag_ids in same space; assignee active member (Phase 5); reminders[] inline (max 5) |
+| `task-lists` | `POST /{id}/archive`, `/unarchive`; `GET ?filter[archived]=1`, `filter[trashed]=only` | name 1–100; color hex; icon `[a-z0-9-]` ≤ 32 |
+| `tasks` | `POST /{id}/complete` (returns the completed task in `data` and the next instance of a recurring task in `meta.next`, or null), `POST /{id}/reopen`, `POST /reorder` (`{ids}`, ≤ 500). Filters: `status`, `list_id`, `tag`, `assignee=me`, `due_from`, `due_to`, `view=today\|overdue\|upcoming` (viewer's timezone), `trashed=only`. Sort: `due`, `priority`, `created_at`, `sort_order` (default), `-` for descending, up to 3 keys | title 1–255; description ≤10k; due_date date; due_time H:i requires due_date; timezone valid; rrule parseable, FREQ in DAILY/WEEKLY/MONTHLY/YEARLY, COUNT ≤ 1000, min interval daily; priority 0–3; task_list_id in same space; tag_ids in same space; assignee active member (Phase 5); reminders[] inline (max 5) |
 | `events` | `GET ?from&to` expands occurrences; `PATCH /{id}/occurrences/{originalStart}` (scope=this\|following\|all); `DELETE /{id}/occurrences/{originalStart}` | title 1–255; all_day bool; starts_at < ends_at; duration ≤ 14 days for timed; rrule rules as tasks |
 | `important-dates` | – | kind enum; month 1–12; day valid for month; year 1900–current |
 | `notes` | `POST /{id}/pin`, `/unpin`, `/archive`; `POST /{id}/attachments` (file_id); `DELETE /{id}/attachments/{file}` | body ≤100k chars |

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-LifeOS is a freemium consumer platform for managing personal and family life. It launches in Bangladesh first, then goes global. Phase 0 (foundation) is done. Phase 1 is in progress: slices 1.1 (Identity: accounts and login), 1.2 (Spaces and Entitlements), 1.3 (Audit log and log scrubbing) and 1.5a (content API groundwork and Tags) are built. 1.4 (frontend) waits for Node.js. The backend is a Laravel 13 API in `backend/`. `frontend/` (React) and Docker Compose are not set up yet, because this machine has no Node.js or Docker.
+LifeOS is a freemium consumer platform for managing personal and family life. It launches in Bangladesh first, then goes global. Phase 0 (foundation) is done. Phase 1 is in progress: slices 1.1 (Identity: accounts and login), 1.2 (Spaces and Entitlements), 1.3 (Audit log and log scrubbing), 1.5a (content API groundwork and Tags), 1.5b (Tasks backend) and 1.5c (recurring tasks) are built. 1.4 (frontend) waits for Node.js. The backend is a Laravel 13 API in `backend/`. `frontend/` (React) and Docker Compose are not set up yet, because this machine has no Node.js or Docker.
 
 - `docs/blueprint/`: the approved implementation blueprint, one file per section (PRD, schema, API, security, roadmap, …). Start at `docs/blueprint/README.md`. Slices are listed in `22-phase-by-phase-claude-code-implementation-plan.md`.
 - `docs/adr/`: architecture decision records. Supersede an ADR with a new one rather than editing an accepted one.
@@ -57,7 +57,8 @@ cd backend && php artisan queue:work                                     # run q
 - Every request gets an `X-Request-Id`, which is added to the log context and to error bodies.
 - Domain models extend `BaseModel` (ULID keys, `DATETIME(3)` timestamps). Each new module gets a provider extending `ModuleServiceProvider`, placed in the module root and registered in `bootstrap/providers.php`. The provider auto-loads `Database/Migrations` and mounts `routes/api.php` under `/api/v1`.
 - Request validation extends `StrictFormRequest`, which rejects unknown top-level fields with a 422. List `password_confirmation`-style fields in `$alsoAllowed`.
-- Lists: `cursorPaginate(PerPage::fromRequest($request))`.
+- Recurrence rules: `Recurrence\RRule::parse()` (throws `InvalidRRule` with a `reason` that maps to a `tasks.rrule.*` message) and `RecurrenceCalculator::next()`, built on `rlanvin/php-rrule`.
+- Lists: `cursorPaginate(PerPage::fromRequest($request))`. Never cursor-paginate on a datetime-cast column (the cursor keeps only whole seconds, so rows repeat or are skipped): order by the ULID `id`, which is creation-time ordered, or by an uncast column.
 - POST creates take `Idempotency-Key`: add `->middleware(Idempotency::class)` to the route (after `auth:sanctum`). PATCH supports `If-Match`: load the row with `lockForUpdate()` in a transaction and call `Version::assertMatches($request, $row)`. Resources expose `'version' => Version::of($model)`. Money: `Money` (minor units). Wall-clock times: `LocalDateTime` (IANA zone; DST gap shifts forward, ambiguous times take the first occurrence).
 
 ## Identity module (`backend/app/Modules/Identity`)
@@ -97,6 +98,15 @@ cd backend && php artisan queue:work                                     # run q
 
 - Platform module (blueprint §9.1): feature modules link to tags through their own pivots (`task_tag`, …) and must check that tag and item share a space.
 - Tags are space-wide (no `visibility`) and hard-deleted. Names are unique per space, case- and accent-insensitive (column collation). RoleMatrix content type `tag`: children and viewers cannot create; members edit or delete only their own.
+
+## Tasks module (`backend/app/Modules/Tasks`)
+
+- Task lists and tasks under `/spaces/{space}/task-lists` and `/tasks`; route parameters `{taskList}` and `{task}` are registered in `SpaceContentRegistry`. Restore and permanent-delete routes use `->withTrashed()`.
+- `due_date` is the local date; `due_at` (UTC) is set only when a time is given, computed by `Support/DueFields` with `LocalDateTime`. `due_sort` is a generated column for cursor-paginated "sort by due". Views (`today`, `overdue`, `upcoming`) use the viewer's timezone (`Support/TaskQuery`).
+- Tags go through `Tags\Contracts\TagDirectory`; Tasks owns `task_tag` (an arch test forbids using Tags models). Tag summaries load in bulk via `Support/TaskTags`.
+- Only the creator may change `visibility`; a private task may only be assigned to its creator. Completing is allowed to editors and to the assignee (`TaskPolicy::complete`).
+- Deleting a list trashes its tasks the deleter can see with the same `deleted_at` (`Actions/TrashTasks`); restoring the list restores exactly those.
+- Recurrence is complete-to-generate: `Actions/CompleteTask` creates the next instance in the same transaction, using `Shared/Recurrence` (`RRule` validates and canonicalises the rule; `RecurrenceCalculator` works on dates only and skips forward to today). A unique `(recurrence_series_id, due_date)` keeps generation idempotent.
 
 ## Test conventions
 

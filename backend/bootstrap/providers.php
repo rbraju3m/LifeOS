@@ -5,6 +5,7 @@ use App\Modules\Entitlements\EntitlementsServiceProvider;
 use App\Modules\Identity\IdentityServiceProvider;
 use App\Modules\Spaces\SpacesServiceProvider;
 use App\Modules\Tags\TagsServiceProvider;
+use App\Modules\Tasks\TasksServiceProvider;
 use App\Providers\AppServiceProvider;
 
 return [
@@ -14,4 +15,5 @@ return [
     EntitlementsServiceProvider::class,
     AuditServiceProvider::class,
     TagsServiceProvider::class,
+    TasksServiceProvider::class,
 ];

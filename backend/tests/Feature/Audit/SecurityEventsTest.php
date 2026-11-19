@@ -3,6 +3,7 @@
 use App\Modules\Audit\AuditLogger;
 use App\Modules\Audit\Models\AuditLog;
 use App\Modules\Identity\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -33,10 +34,12 @@ it('lists only my own security events, newest first', function () {
 
 it('paginates with a cursor', function () {
     $me = User::factory()->create();
-    foreach (range(1, 4) as $i) {
-        $this->travel(1)->seconds();
+    // Same second, different milliseconds: the cursor must not drop them.
+    foreach ([100, 300, 500, 700] as $ms) {
+        $this->travelTo(CarbonImmutable::parse("2026-11-20 10:00:00.{$ms}"));
         app(AuditLogger::class)->record('auth.login', $me);
     }
+    $this->travelTo(CarbonImmutable::parse('2026-11-20 10:00:05'));
 
     $first = $this->actingAs($me)->getJson('/api/v1/me/security-events?per_page=3')->assertOk();
     expect($first->json('data'))->toHaveCount(3);

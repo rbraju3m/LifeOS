@@ -139,9 +139,15 @@ Each has a composite PK, both FKs CASCADE, and a reverse index `(tag_id)`. The s
 | completed_by | CHAR(26) | Y | NULL | FK→users SET NULL |
 | sort_order | INT | N | 0 | |
 
-Indexes: `(space_id, status, due_date)`, `(space_id, status, due_at)`, `(assignee_user_id, status)`, `(recurrence_series_id)`, `(created_by)`, FULLTEXT `(title, description)`.
+Indexes: `(space_id, status, due_date)`, `(space_id, status, due_at)`, `(space_id, status, due_sort)`, `(assignee_user_id, status)`, UNIQUE `(recurrence_series_id, due_date)`, `(created_by)`, FULLTEXT `(title, description)`.
+`due_sort DATETIME(3)` is a stored generated column, `COALESCE(due_at, TIMESTAMP(due_date,'23:59:59'), '9999-12-31 23:59:59')`, so "sort by due" can use cursor pagination (which cannot page over NULLs). Date-only tasks sort at 23:59 UTC of their date, which can be a few hours off relative to timed tasks that day; the today/overdue views do not use it.
+**Trash:** deleting a list moves its tasks that the deleter can see to the Trash with the list's exact `deleted_at`; restoring the list restores exactly those. Other members' private tasks in the list are moved out of it instead. A task restored while its list is still in the Trash comes back outside any list.
 CHECK: `due_at IS NULL OR due_date IS NOT NULL` (due_date always holds the local date, which keeps the "today" query simple).
 **Recurrence model:** complete-to-generate. Completing an instance with an `rrule` creates the next instance (copying fields, tags and reminder templates) in the same transaction, which is idempotent per `(recurrence_series_id, due_date)`. This is simpler than virtual occurrences and matches how people think about chores.
+- The next date is the first occurrence after the current due date that is also on or after today in the task's timezone, so completing a late task does not create a backlog. Occurrences skipped this way count toward `COUNT`; the next instance stores the remaining `COUNT`. The rule is evaluated from the current instance's date, which keeps interval phase (and continues from a date the user moved).
+- Timed tasks keep their local time on the new date (DST-safe). The original `created_by` is kept, so a private series stays private.
+- The unique `(recurrence_series_id, due_date)` makes generation idempotent: completing again after a reopen returns the existing next instance, and a next instance in the Trash is not recreated. Reopening does not remove an already generated next instance.
+- `UNTIL` may be a date or a UTC date-time; only its date is used.
 
 ### 10.5 Calendar module
 

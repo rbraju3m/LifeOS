@@ -18,6 +18,7 @@ return [
     'password_confirmation_required' => 'চালিয়ে যেতে আপনার পাসওয়ার্ড নিশ্চিত করুন।',
     'entitlement_exceeded' => 'আপনার বর্তমান প্ল্যানের সীমা পূর্ণ হয়েছে।',
     'version_conflict' => 'আইটেমটি অন্য কেউ পরিবর্তন করেছেন। আবার লোড করে চেষ্টা করুন।',
+    'not_in_trash' => 'শুধু ট্র্যাশে থাকা আইটেম স্থায়ীভাবে মুছে ফেলা যায়।',
     'idempotency_key_invalid' => 'Idempotency-Key হেডারটি একটি UUID বা ULID হতে হবে।',
     'idempotency_key_reused' => 'এই Idempotency-Key আগে অন্য একটি অনুরোধে ব্যবহার করা হয়েছে।',
     'idempotency_request_in_progress' => 'এই Idempotency-Key-এর একটি অনুরোধ এখনও প্রক্রিয়াধীন।',

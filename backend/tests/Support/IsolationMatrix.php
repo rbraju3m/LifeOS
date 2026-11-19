@@ -47,7 +47,10 @@ final class IsolationMatrix
     ];
 
     /**
-     * @return array<string, array{method: string, item: string, body?: array<string, mixed>, expect: array<string, int>}>
+     * `body` may be a closure receiving the route parameters. `trashed` puts the
+     * item in the Trash first (for restore and permanent-delete routes).
+     *
+     * @return array<string, array{method: string, item: string, body?: array<string, mixed>|Closure(array<string, Model>): array<string, mixed>, trashed?: bool, expect: array<string, int>}>
      */
     public static function routes(): array
     {
@@ -60,6 +63,27 @@ final class IsolationMatrix
             'tags.show' => ['method' => 'GET', 'item' => 'tag', 'expect' => ['viewer' => 200, 'child' => 200]],
             'tags.update' => ['method' => 'PATCH', 'item' => 'tag', 'body' => ['name' => 'Renamed'], 'expect' => ['viewer' => 403, 'child' => 403]],
             'tags.destroy' => ['method' => 'DELETE', 'item' => 'tag', 'expect' => ['viewer' => 403, 'child' => 403]],
+
+            'task-lists.index' => ['method' => 'GET', 'item' => 'space', 'expect' => ['viewer' => 200, 'child' => 200]],
+            'task-lists.store' => ['method' => 'POST', 'item' => 'space', 'body' => ['name' => 'Isolation'], 'expect' => ['viewer' => 403, 'child' => 403]],
+            'task-lists.show' => ['method' => 'GET', 'item' => 'task_list', 'expect' => ['viewer' => 200, 'child' => 200]],
+            'task-lists.update' => ['method' => 'PATCH', 'item' => 'task_list', 'body' => ['name' => 'Renamed'], 'expect' => ['viewer' => 403, 'child' => 403]],
+            'task-lists.destroy' => ['method' => 'DELETE', 'item' => 'task_list', 'expect' => ['viewer' => 403, 'child' => 403]],
+            'task-lists.archive' => ['method' => 'POST', 'item' => 'task_list', 'expect' => ['viewer' => 403, 'child' => 403]],
+            'task-lists.unarchive' => ['method' => 'POST', 'item' => 'task_list', 'expect' => ['viewer' => 403, 'child' => 403]],
+            'task-lists.restore' => ['method' => 'POST', 'item' => 'task_list', 'trashed' => true, 'expect' => ['viewer' => 403, 'child' => 403]],
+            'task-lists.force-destroy' => ['method' => 'DELETE', 'item' => 'task_list', 'trashed' => true, 'expect' => ['viewer' => 403, 'child' => 403]],
+
+            'tasks.index' => ['method' => 'GET', 'item' => 'space', 'expect' => ['viewer' => 200, 'child' => 200]],
+            'tasks.store' => ['method' => 'POST', 'item' => 'space', 'body' => ['title' => 'Isolation'], 'expect' => ['viewer' => 403, 'child' => 201]],
+            'tasks.reorder' => ['method' => 'POST', 'item' => 'task', 'body' => fn (array $p) => ['ids' => [$p['task']->getKey()]], 'expect' => ['viewer' => 403, 'child' => 403]],
+            'tasks.show' => ['method' => 'GET', 'item' => 'task', 'expect' => ['viewer' => 200, 'child' => 200]],
+            'tasks.update' => ['method' => 'PATCH', 'item' => 'task', 'body' => ['title' => 'Renamed'], 'expect' => ['viewer' => 403, 'child' => 403]],
+            'tasks.destroy' => ['method' => 'DELETE', 'item' => 'task', 'expect' => ['viewer' => 403, 'child' => 403]],
+            'tasks.complete' => ['method' => 'POST', 'item' => 'task', 'expect' => ['viewer' => 403, 'child' => 403]],
+            'tasks.reopen' => ['method' => 'POST', 'item' => 'task', 'expect' => ['viewer' => 403, 'child' => 403]],
+            'tasks.restore' => ['method' => 'POST', 'item' => 'task', 'trashed' => true, 'expect' => ['viewer' => 403, 'child' => 403]],
+            'tasks.force-destroy' => ['method' => 'DELETE', 'item' => 'task', 'trashed' => true, 'expect' => ['viewer' => 403, 'child' => 403]],
         ];
     }
 
@@ -80,6 +104,14 @@ final class IsolationMatrix
 
                 return ['space' => $space, 'tag' => Content::tag($space, $creator, 'Isolation item')];
             },
+            'task' => fn (Space $space, User $creator, bool $private) => [
+                'space' => $space,
+                'task' => Content::task($space, $creator, 'Isolation item', $private),
+            ],
+            'task_list' => fn (Space $space, User $creator, bool $private) => [
+                'space' => $space,
+                'taskList' => Content::taskList($space, $creator, 'Isolation item', $private),
+            ],
         ];
     }
 
@@ -122,6 +154,14 @@ final class IsolationMatrix
 
         if ($params === null) {
             return null;
+        }
+
+        if (self::routes()[$route]['trashed'] ?? false) {
+            foreach ($params as $name => $model) {
+                if ($name !== 'space' && method_exists($model, 'delete')) {
+                    $model->delete();
+                }
+            }
         }
 
         return [

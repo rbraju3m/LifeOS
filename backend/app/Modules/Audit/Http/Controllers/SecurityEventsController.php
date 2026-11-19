@@ -20,7 +20,8 @@ class SecurityEventsController
         $events = AuditLog::query()
             ->where('actor_user_id', $user->getKey())
             ->security()
-            ->orderByDesc('created_at')
+            // By ULID only: a cursor over the datetime-cast created_at would
+            // lose milliseconds and skip events from the same second.
             ->orderByDesc('id')
             ->cursorPaginate(PerPage::fromRequest($request));
 

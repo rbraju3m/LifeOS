@@ -22,3 +22,7 @@ arch('controllers do not use the query builder facade directly')
 arch('only the Audit module touches the audit_logs model; others go through AuditLogger')
     ->expect('App\Modules\Audit\Models\AuditLog')
     ->toOnlyBeUsedIn('App\Modules\Audit');
+
+arch('feature modules use Tags only through its contracts')
+    ->expect('App\Modules\Tasks')
+    ->not->toUse('App\Modules\Tags\Models');

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Carbon;
 
 /**
@@ -89,15 +90,39 @@ class Space extends BaseModel
      */
     public function resolveChildRouteBinding($childType, $value, $field): ?Model
     {
+        return $this->resolveSpaceContent($childType, $value, $field, false)
+            ?? (SpaceContentRegistry::modelFor($childType) === null ? parent::resolveChildRouteBinding($childType, $value, $field) : null);
+    }
+
+    /**
+     * Used for routes declared ->withTrashed() (restore, permanent delete).
+     *
+     * @param  string  $childType
+     * @param  mixed  $value
+     * @param  string|null  $field
+     */
+    public function resolveSoftDeletableChildRouteBinding($childType, $value, $field): ?Model
+    {
+        return $this->resolveSpaceContent($childType, $value, $field, true)
+            ?? (SpaceContentRegistry::modelFor($childType) === null ? parent::resolveSoftDeletableChildRouteBinding($childType, $value, $field) : null);
+    }
+
+    private function resolveSpaceContent(string $childType, mixed $value, ?string $field, bool $withTrashed): ?Model
+    {
         $model = SpaceContentRegistry::modelFor($childType);
 
         if ($model === null) {
-            return parent::resolveChildRouteBinding($childType, $value, $field);
+            return null;
         }
 
         $instance = new $model;
+        $query = $instance->newQuery();
 
-        return $instance->newQuery()
+        if ($withTrashed && in_array(SoftDeletes::class, class_uses_recursive($instance), true)) {
+            $query->withoutGlobalScope(SoftDeletingScope::class);
+        }
+
+        return $query
             ->where($instance->qualifyColumn('space_id'), $this->id)
             ->where($instance->qualifyColumn($field ?? $instance->getRouteKeyName()), $value)
             ->first();

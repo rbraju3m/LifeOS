@@ -18,6 +18,7 @@ return [
     'password_confirmation_required' => 'Please confirm your password to continue.',
     'entitlement_exceeded' => 'You have reached the limit of your current plan.',
     'version_conflict' => 'This item was changed by someone else. Reload and try again.',
+    'not_in_trash' => 'Only items in the Trash can be deleted permanently.',
     'idempotency_key_invalid' => 'The Idempotency-Key header must be a UUID or ULID.',
     'idempotency_key_reused' => 'This Idempotency-Key was already used for a different request.',
     'idempotency_request_in_progress' => 'A request with this Idempotency-Key is still being processed.',
