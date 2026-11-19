@@ -1,0 +1,87 @@
+deptrac:
+  # Module boundaries from docs/blueprint/09-domain-and-module-architecture.md.
+  # Each module is its own layer; anything not listed in a ruleset is forbidden.
+  paths:
+    - ./app
+  layers:
+    - name: Shared
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Shared\\.*#'
+    - name: Identity
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Identity\\.*#'
+    - name: Spaces
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Spaces\\.*#'
+    - name: Entitlements
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Entitlements\\.*#'
+    - name: Files
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Files\\.*#'
+    - name: Notifications
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Notifications\\.*#'
+    - name: Reminders
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Reminders\\.*#'
+    - name: Audit
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Audit\\.*#'
+    - name: Privacy
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Privacy\\.*#'
+    - name: Tags
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Tags\\.*#'
+    - name: Tasks
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Tasks\\.*#'
+    - name: Notes
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Notes\\.*#'
+    - name: Calendar
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Calendar\\.*#'
+    - name: Records
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Records\\.*#'
+    - name: Dashboard
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\Modules\\Dashboard\\.*#'
+    - name: App
+      collectors:
+        - type: classNameRegex
+          value: '#^App\\(?!Modules\\).*#'
+  ruleset:
+    Shared: ~
+    Identity: [Shared]
+    Spaces: [Shared, Identity]
+    Entitlements: [Shared, Spaces, Identity]
+    Files: [Shared, Spaces, Entitlements, Identity]
+    Notifications: [Shared, Identity]
+    Reminders: [Shared, Spaces, Notifications, Identity]
+    Audit: [Shared, Identity]
+    Privacy: [Shared, Identity, Spaces, Files, Audit]
+    Tags: [Shared, Spaces, Identity, Privacy]
+    Tasks: [Shared, Spaces, Identity, Reminders, Entitlements, Audit, Tags, Privacy]
+    Notes: [Shared, Spaces, Identity, Files, Entitlements, Audit, Tags, Privacy]
+    Calendar: [Shared, Spaces, Identity, Reminders, Entitlements, Audit, Privacy]
+    Records: [Shared, Spaces, Identity, Files, Reminders, Entitlements, Audit, Tags, Privacy]
+    Dashboard: [Shared, Identity, Spaces, Entitlements, Files, Notifications, Reminders, Audit, Privacy, Tags, Tasks, Notes, Calendar, Records]
+    App: [Shared, Identity, Spaces, Entitlements, Files, Notifications, Reminders, Audit, Privacy, Tags, Tasks, Notes, Calendar, Records, Dashboard]
